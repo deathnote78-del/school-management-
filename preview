@@ -1,0 +1,1440 @@
+import { useState, useEffect, useRef, createContext, useContext } from "react";
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const style = `
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --sun:   #FFD93D;
+    --sky:   #6BCBF5;
+    --grass: #6BCB77;
+    --coral: #FF6B6B;
+    --purple:#C77DFF;
+    --navy:  #1A1F4B;
+    --ink:   #2B2D42;
+    --white: #FFFDF7;
+    --card:  #FFFFFF;
+    --muted: #7C7F9A;
+    --border:#E8E9F3;
+    --shadow: 0 4px 0 0 rgba(26,31,75,0.12);
+    --shadow-lg: 0 8px 0 0 rgba(26,31,75,0.14);
+    --r: 16px;
+    --font-head: 'Fredoka One', cursive;
+    --font-body: 'Nunito', sans-serif;
+  }
+
+  body { font-family: var(--font-body); background: #F0F4FF; color: var(--ink); }
+
+  .app { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 240px; min-height: 100vh; background: var(--navy);
+    display: flex; flex-direction: column; padding: 24px 16px;
+    position: fixed; left: 0; top: 0; bottom: 0; z-index: 100;
+  }
+  .sidebar-logo {
+    font-family: var(--font-head); font-size: 22px; color: var(--sun);
+    display: flex; align-items: center; gap: 8px; margin-bottom: 32px;
+    letter-spacing: 0.5px;
+  }
+  .sidebar-logo .emoji { font-size: 28px; }
+  .nav-section { font-size: 11px; color: var(--sky); text-transform: uppercase;
+    letter-spacing: 1.5px; padding: 0 12px; margin: 16px 0 6px; font-weight: 800; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-radius: 12px; cursor: pointer; color: rgba(255,255,255,0.65);
+    font-weight: 700; font-size: 14px; transition: all 0.15s; margin-bottom: 2px;
+    border: 2px solid transparent;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.08); color: white; }
+  .nav-item.active { background: var(--sun); color: var(--navy); border-color: transparent;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
+  .nav-item .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+  .sidebar-user {
+    margin-top: auto; background: rgba(255,255,255,0.08);
+    border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px;
+  }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.3);
+  }
+  .avatar-sm { width: 30px; height: 30px; font-size: 14px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; }
+
+  /* MAIN */
+  .main { margin-left: 240px; flex: 1; padding: 28px; min-height: 100vh; }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .page-title { font-family: var(--font-head); font-size: 28px; color: var(--navy); }
+  .page-subtitle { color: var(--muted); font-size: 14px; font-weight: 600; margin-top: 2px; }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+  /* CARDS */
+  .card {
+    background: var(--card); border-radius: var(--r); padding: 20px;
+    border: 2px solid var(--border); box-shadow: var(--shadow);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .card-grid { display: grid; gap: 16px; }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+  /* STAT CARDS */
+  .stat-card {
+    background: var(--card); border-radius: var(--r); padding: 20px 22px;
+    border: 2px solid var(--border); box-shadow: var(--shadow);
+    display: flex; align-items: flex-start; gap: 14px; cursor: default;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .stat-icon {
+    width: 52px; height: 52px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+    flex-shrink: 0; border: 2px solid rgba(0,0,0,0.08);
+  }
+  .stat-val { font-family: var(--font-head); font-size: 32px; line-height: 1; color: var(--navy); }
+  .stat-label { font-size: 13px; color: var(--muted); font-weight: 700; margin-top: 3px; }
+  .stat-trend { font-size: 12px; font-weight: 800; margin-top: 6px; }
+  .up { color: var(--grass); } .down { color: var(--coral); }
+
+  /* BUTTONS */
+  .btn {
+    font-family: var(--font-body); font-weight: 800; font-size: 13px;
+    padding: 9px 18px; border-radius: 10px; border: 2px solid transparent;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.12s; text-decoration: none;
+  }
+  .btn-primary { background: var(--navy); color: white; box-shadow: 0 4px 0 rgba(26,31,75,0.3); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 0 rgba(26,31,75,0.3); }
+  .btn-primary:active { transform: translateY(2px); box-shadow: none; }
+  .btn-sun { background: var(--sun); color: var(--navy); box-shadow: 0 4px 0 rgba(255,193,7,0.4); }
+  .btn-sun:hover { transform: translateY(-2px); box-shadow: 0 6px 0 rgba(255,193,7,0.4); }
+  .btn-coral { background: var(--coral); color: white; box-shadow: 0 4px 0 rgba(255,107,107,0.35); }
+  .btn-coral:hover { transform: translateY(-2px); }
+  .btn-grass { background: var(--grass); color: white; box-shadow: 0 4px 0 rgba(107,203,119,0.35); }
+  .btn-sky { background: var(--sky); color: var(--navy); box-shadow: 0 4px 0 rgba(107,203,245,0.35); }
+  .btn-ghost { background: transparent; color: var(--muted); border-color: var(--border); }
+  .btn-ghost:hover { background: var(--border); color: var(--ink); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* BADGE */
+  .badge {
+    display: inline-flex; align-items: center; padding: 3px 10px;
+    border-radius: 999px; font-size: 12px; font-weight: 800; gap: 4px;
+    border: 2px solid transparent;
+  }
+  .badge-green { background: #D4F4DD; color: #1A7A31; border-color: #A8E6B4; }
+  .badge-red { background: #FFE0E0; color: #C0392B; border-color: #FFB3B3; }
+  .badge-yellow { background: #FFF3CC; color: #9A6B00; border-color: #FFE08A; }
+  .badge-blue { background: #D6EEFF; color: #1A4F8A; border-color: #99CCFF; }
+  .badge-purple { background: #EEE0FF; color: #6A11CB; border-color: #D4AAFF; }
+
+  /* TABLE */
+  .table-wrap { border-radius: var(--r); overflow: hidden; border: 2px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--navy); }
+  th { padding: 12px 16px; text-align: left; font-size: 12px; color: var(--sun);
+    font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+  td { padding: 13px 16px; font-size: 14px; font-weight: 600; color: var(--ink);
+    border-bottom: 2px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #FAFBFF; }
+  tr:hover td { background: #F0F4FF; cursor: default; }
+
+  /* FORM */
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 800; color: var(--ink);
+    margin-bottom: 6px; }
+  input, select, textarea {
+    width: 100%; padding: 10px 14px; border-radius: 10px;
+    border: 2px solid var(--border); font-family: var(--font-body);
+    font-size: 14px; font-weight: 600; color: var(--ink); background: white;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--sky); box-shadow: 0 0 0 3px rgba(107,203,245,0.25);
+  }
+
+  /* MODAL */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(26,31,75,0.5); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    backdrop-filter: blur(4px);
+  }
+  .modal {
+    background: white; border-radius: 20px; padding: 28px; width: 100%; max-width: 500px;
+    border: 3px solid var(--border); box-shadow: 0 20px 0 rgba(26,31,75,0.15);
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title { font-family: var(--font-head); font-size: 22px; color: var(--navy);
+    margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+
+  /* LOGIN */
+  .login-page {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #1A1F4B 0%, #2D3470 50%, #3D4C9E 100%);
+    position: relative; overflow: hidden;
+  }
+  .login-bubbles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .bubble {
+    position: absolute; border-radius: 50%; opacity: 0.12;
+    animation: float 6s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+  }
+  .login-card {
+    background: white; border-radius: 24px; padding: 40px; width: 420px;
+    border: 3px solid rgba(255,255,255,0.2); box-shadow: 0 24px 0 rgba(0,0,0,0.2);
+    position: relative; z-index: 1;
+  }
+  .login-logo { font-family: var(--font-head); font-size: 28px; color: var(--navy);
+    text-align: center; margin-bottom: 6px; }
+  .login-sub { text-align: center; color: var(--muted); font-size: 14px; font-weight: 600;
+    margin-bottom: 28px; }
+  .role-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+  .role-btn {
+    padding: 10px; border-radius: 12px; border: 2px solid var(--border);
+    cursor: pointer; text-align: center; font-weight: 800; font-size: 13px;
+    transition: all 0.15s; background: white; color: var(--muted);
+  }
+  .role-btn.selected { border-color: var(--navy); background: var(--navy); color: var(--sun); }
+  .role-btn .role-emoji { font-size: 20px; display: block; margin-bottom: 4px; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { background: var(--border); border-radius: 999px; height: 10px;
+    overflow: hidden; border: 2px solid rgba(0,0,0,0.06); }
+  .progress-fill { height: 100%; border-radius: 999px; transition: width 0.5s; }
+
+  /* ATTENDANCE GRID */
+  .att-grid { display: grid; grid-template-columns: 1fr auto auto; gap: 0;
+    align-items: center; }
+  .att-row { display: contents; }
+  .att-row > * { padding: 11px 14px; border-bottom: 2px solid var(--border);
+    font-size: 14px; font-weight: 600; }
+  .att-row:last-child > * { border-bottom: none; }
+  .att-row:hover > * { background: #F0F4FF; cursor: default; }
+
+  /* ANNOUNCEMENT */
+  .announcement {
+    background: var(--card); border-radius: var(--r); padding: 18px 20px;
+    border: 2px solid var(--border); box-shadow: var(--shadow);
+    border-left: 5px solid var(--sun); margin-bottom: 12px;
+    transition: transform 0.15s;
+  }
+  .announcement:hover { transform: translateX(4px); }
+  .ann-title { font-weight: 800; color: var(--navy); font-size: 15px; }
+  .ann-body { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.5; }
+  .ann-meta { font-size: 12px; color: var(--muted); margin-top: 8px; font-weight: 700; }
+
+  /* CHART BARS */
+  .chart-bars { display: flex; align-items: flex-end; gap: 8px; height: 140px;
+    padding-bottom: 28px; position: relative; }
+  .chart-bar-wrap { display: flex; flex-direction: column; align-items: center;
+    gap: 4px; flex: 1; }
+  .chart-bar { width: 100%; border-radius: 8px 8px 0 0; transition: height 0.5s;
+    cursor: pointer; min-height: 4px; }
+  .chart-label { font-size: 11px; font-weight: 800; color: var(--muted); }
+  .chart-val { font-size: 11px; font-weight: 800; position: absolute;
+    top: -18px; left: 50%; transform: translateX(-50%); color: var(--navy); }
+
+  /* RECEIPT */
+  .receipt {
+    background: #FFFDF7; border: 3px dashed var(--border); border-radius: var(--r);
+    padding: 24px; font-family: 'Courier New', monospace;
+  }
+  .receipt-title { font-family: var(--font-head); font-size: 18px; text-align: center;
+    color: var(--navy); margin-bottom: 16px; }
+  .receipt-row { display: flex; justify-content: space-between; padding: 6px 0;
+    font-size: 13px; border-bottom: 1px dashed var(--border); }
+  .receipt-total { font-weight: 900; font-size: 16px; color: var(--navy); }
+
+  /* SCRATCH CARD */
+  .scratch-card {
+    background: linear-gradient(135deg, var(--navy), #2D3470);
+    border-radius: 14px; padding: 18px; text-align: center; position: relative;
+    border: 2px solid rgba(255,255,255,0.15); cursor: pointer; overflow: hidden;
+    transition: transform 0.15s;
+  }
+  .scratch-card:hover { transform: scale(1.02); }
+  .scratch-card .code { font-family: 'Courier New', monospace; font-size: 18px;
+    font-weight: 900; color: var(--sun); letter-spacing: 3px; }
+  .scratch-overlay {
+    position: absolute; inset: 0; background: linear-gradient(135deg, #C0C0C0, #A0A0A0);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; color: white; font-size: 14px; border-radius: 12px;
+    transition: opacity 0.3s;
+  }
+
+  /* SECTION HEADER */
+  .section-header { display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; }
+  .section-title { font-family: var(--font-head); font-size: 18px; color: var(--navy);
+    display: flex; align-items: center; gap: 8px; }
+
+  /* WELCOME BANNER */
+  .welcome-banner {
+    background: var(--navy); border-radius: var(--r); padding: 24px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; overflow: hidden; position: relative;
+    border: 2px solid rgba(255,255,255,0.1);
+  }
+  .welcome-banner::before {
+    content: ''; position: absolute; right: -40px; top: -40px;
+    width: 200px; height: 200px; background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+  }
+  .welcome-text h2 { font-family: var(--font-head); color: var(--sun); font-size: 22px; }
+  .welcome-text p { color: rgba(255,255,255,0.65); font-size: 14px; margin-top: 4px; font-weight: 600; }
+  .welcome-emoji { font-size: 56px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
+
+  /* TOOLTIP-like chip */
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+    border-radius: 8px; font-size: 12px; font-weight: 800;
+    background: var(--border); color: var(--muted);
+  }
+  .chip-navy { background: rgba(26,31,75,0.1); color: var(--navy); }
+
+  /* SEARCH BAR */
+  .search-wrap { position: relative; }
+  .search-wrap input { padding-left: 36px; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 16px; pointer-events: none; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  /* RESPONSIVE tweaks */
+  @media (max-width: 900px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  }
+`;
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+const STUDENTS = [
+  { id: "S001", name: "Amara Okafor",  class: "SS2A", email: "amara@school.ng",  paid: 50000, balance: 0,      status: "paid",    score: 88 },
+  { id: "S002", name: "Tunde Adeyemi", class: "SS2A", email: "tunde@school.ng",  paid: 25000, balance: 25000,  status: "partial", score: 74 },
+  { id: "S003", name: "Fatima Bello",  class: "JSS3B", email: "fatima@school.ng", paid: 0,     balance: 40000,  status: "unpaid",  score: 91 },
+  { id: "S004", name: "Emeka Eze",     class: "SS1A", email: "emeka@school.ng",  paid: 45000, balance: 5000,   status: "partial", score: 65 },
+  { id: "S005", name: "Ngozi Adaeze",  class: "JSS1A", email: "ngozi@school.ng",  paid: 35000, balance: 0,      status: "paid",    score: 95 },
+  { id: "S006", name: "Seun Olawale",  class: "SS2A", email: "seun@school.ng",   paid: 0,     balance: 50000,  status: "unpaid",  score: 72 },
+  { id: "S007", name: "Chiamaka Nwu.", class: "JSS3B", email: "chi@school.ng",    paid: 40000, balance: 0,      status: "paid",    score: 83 },
+  { id: "S008", name: "Dayo Oladipo",  class: "SS1A", email: "dayo@school.ng",   paid: 10000, balance: 40000,  status: "partial", score: 77 },
+];
+
+const TEACHERS = [
+  { id: "T001", name: "Mrs. Afolabi",   subject: "Mathematics",  class: "SS2A", email: "afolabi@school.ng" },
+  { id: "T002", name: "Mr. Okonkwo",    subject: "English",      class: "JSS3B", email: "okonkwo@school.ng" },
+  { id: "T003", name: "Mrs. Ibrahim",   subject: "Chemistry",    class: "SS1A", email: "ibrahim@school.ng" },
+  { id: "T004", name: "Mr. Babatunde",  subject: "Biology",      class: "JSS1A", email: "baba@school.ng" },
+  { id: "T005", name: "Mrs. Adaeze",    subject: "Physics",      class: "SS2A", email: "adaeze@school.ng" },
+];
+
+const CLASSES = [
+  { id: "C1", name: "JSS1A", students: 32, teacher: "Mr. Babatunde", fee: 35000 },
+  { id: "C2", name: "JSS3B", students: 28, teacher: "Mr. Okonkwo",   fee: 40000 },
+  { id: "C3", name: "SS1A",  students: 30, teacher: "Mrs. Ibrahim",  fee: 50000 },
+  { id: "C4", name: "SS2A",  students: 35, teacher: "Mrs. Afolabi",  fee: 50000 },
+];
+
+const ANNOUNCEMENTS = [
+  { id: 1, title: "🏆 Inter-house Sports Day — Nov 15!", body: "All students are to wear house colours. Events begin at 9am sharp. Parents are welcome!", date: "Nov 5, 2024", by: "Admin" },
+  { id: 2, title: "📚 End-of-term exams schedule released", body: "Check the notice board or download from the portal. First paper: Nov 18 (Mathematics).", date: "Nov 3, 2024", by: "Admin" },
+  { id: 3, title: "💰 Fee payment deadline — Nov 10", body: "All outstanding balances must be cleared before exam cards are issued. Contact the bursar.", date: "Nov 1, 2024", by: "Bursar" },
+];
+
+const SUBJECTS = [
+  { id: "SUB1", name: "Mathematics",  code: "MTH", teacher: "Mrs. Afolabi" },
+  { id: "SUB2", name: "English Lang.", code: "ENG", teacher: "Mr. Okonkwo" },
+  { id: "SUB3", name: "Chemistry",    code: "CHE", teacher: "Mrs. Ibrahim" },
+  { id: "SUB4", name: "Biology",      code: "BIO", teacher: "Mr. Babatunde" },
+  { id: "SUB5", name: "Physics",      code: "PHY", teacher: "Mrs. Adaeze" },
+];
+
+const ATTENDANCE_DATA = [
+  { name: "Amara Okafor",  status: "present" },
+  { name: "Tunde Adeyemi", status: "absent" },
+  { name: "Seun Olawale",  status: "present" },
+  { name: "Chiamaka Nwu.", status: "present" },
+  { name: "Ngozi Adaeze",  status: "late" },
+];
+
+const SCRATCH_CARDS = [
+  { id: "SC001", code: "NOVA-2984-KITE", used: false },
+  { id: "SC002", code: "BOLT-5521-ROOK", used: true },
+  { id: "SC003", code: "STAR-8812-MOON", used: false },
+  { id: "SC004", code: "APEX-3344-DAWN", used: false },
+];
+
+const AUTH_CONTEXT = createContext(null);
+const useAuth = () => useContext(AUTH_CONTEXT);
+
+const DEMO_USERS = {
+  admin:   { name: "Principal Chukwu", role: "admin",   emoji: "👨‍💼", color: "#FFD93D" },
+  teacher: { name: "Mrs. Afolabi",     role: "teacher", emoji: "👩‍🏫", color: "#6BCBF5" },
+  bursar:  { name: "Mr. Eze",          role: "bursar",  emoji: "💼",  color: "#6BCB77" },
+  student: { name: "Amara Okafor",     role: "student", emoji: "👩‍🎓", color: "#C77DFF" },
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function getGrade(score) {
+  if (score >= 90) return { g: "A1", c: "badge-green" };
+  if (score >= 75) return { g: "B2", c: "badge-blue" };
+  if (score >= 65) return { g: "C4", c: "badge-yellow" };
+  if (score >= 50) return { g: "C6", c: "badge-purple" };
+  return { g: "F9", c: "badge-red" };
+}
+
+function fmtMoney(n) {
+  return "₦" + n.toLocaleString();
+}
+
+function statusBadge(s) {
+  if (s === "paid")    return <span className="badge badge-green">✓ Paid</span>;
+  if (s === "partial") return <span className="badge badge-yellow">◑ Partial</span>;
+  return <span className="badge badge-red">✗ Unpaid</span>;
+}
+
+function StatCard({ icon, val, label, trend, bg }) {
+  return (
+    <div className="stat-card">
+      <div className="stat-icon" style={{ background: bg + "22", borderColor: bg + "44" }}>
+        <span style={{ fontSize: 24 }}>{icon}</span>
+      </div>
+      <div>
+        <div className="stat-val">{val}</div>
+        <div className="stat-label">{label}</div>
+        {trend && <div className={`stat-trend ${trend.startsWith("+") ? "up" : "down"}`}>{trend}</div>}
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ title, emoji, children }) {
+  return (
+    <div className="section-header">
+      <div className="section-title">{emoji && <span>{emoji}</span>}{title}</div>
+      <div style={{ display: "flex", gap: 8 }}>{children}</div>
+    </div>
+  );
+}
+
+function Modal({ title, emoji, onClose, children }) {
+  return (
+    <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-title">{emoji && <span>{emoji}</span>}{title}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SimpleBar({ data, colors }) {
+  const max = Math.max(...data.map(d => d.val));
+  return (
+    <div className="chart-bars">
+      {data.map((d, i) => (
+        <div className="chart-bar-wrap" key={i}>
+          <div style={{ position: "relative", width: "100%", display: "flex",
+            alignItems: "flex-end", height: "112px" }}>
+            <div className="chart-bar" style={{
+              height: `${(d.val / max) * 100}%`, background: colors[i % colors.length],
+              border: "2px solid rgba(0,0,0,0.08)"
+            }} />
+          </div>
+          <div className="chart-label">{d.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+function LoginPage({ onLogin }) {
+  const [role, setRole] = useState("admin");
+  const [email, setEmail] = useState("admin@novaschool.ng");
+  const [pass, setPass] = useState("password");
+  const roles = [
+    { key: "admin",   label: "Admin",   emoji: "👨‍💼" },
+    { key: "teacher", label: "Teacher", emoji: "👩‍🏫" },
+    { key: "bursar",  label: "Bursar",  emoji: "💼" },
+    { key: "student", label: "Student", emoji: "👩‍🎓" },
+  ];
+  return (
+    <div className="login-page">
+      <div className="login-bubbles">
+        {[["20%","10%","120px","#FFD93D","2s"],["70%","20%","80px","#6BCBF5","3s"],
+          ["10%","70%","100px","#6BCB77","2.5s"],["80%","75%","140px","#C77DFF","4s"],
+          ["45%","50%","60px","#FF6B6B","1.8s"]].map(([l,t,s,c,d],i) => (
+          <div key={i} className="bubble"
+            style={{ left:l, top:t, width:s, height:s, background:c, animationDelay:d }} />
+        ))}
+      </div>
+      <div className="login-card">
+        <div style={{ textAlign:"center", fontSize:48, marginBottom:8 }}>🏫</div>
+        <div className="login-logo">Nova School</div>
+        <div className="login-sub">Sign in to your portal</div>
+        <div style={{ marginBottom:16 }}>
+          <label>Choose your role</label>
+          <div className="role-selector">
+            {roles.map(r => (
+              <button key={r.key} className={`role-btn${role===r.key?" selected":""}`}
+                onClick={() => { setRole(r.key); setEmail(r.key+"@novaschool.ng"); }}>
+                <span className="role-emoji">{r.emoji}</span>{r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="form-group">
+          <label>Email address</label>
+          <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="email@novaschool.ng"/>
+        </div>
+        <div className="form-group">
+          <label>Password</label>
+          <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••"/>
+        </div>
+        <button className="btn btn-primary" style={{width:"100%",justifyContent:"center",fontSize:15,padding:"12px"}}
+          onClick={() => onLogin(DEMO_USERS[role])}>
+          🚀 Sign In
+        </button>
+        <p style={{textAlign:"center",fontSize:12,color:"var(--muted)",marginTop:14,fontWeight:600}}>
+          Demo mode — pick any role above and click Sign In
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── SIDEBAR ──────────────────────────────────────────────────────────────────
+function Sidebar({ page, setPage }) {
+  const { user, logout } = useAuth();
+  const navs = {
+    admin:   [
+      { icon:"🏠", label:"Dashboard",   key:"dashboard" },
+      { icon:"👩‍🎓", label:"Students",    key:"students" },
+      { icon:"👩‍🏫", label:"Teachers",    key:"teachers" },
+      { icon:"🏛️", label:"Classes",     key:"classes" },
+      { icon:"📚", label:"Subjects",    key:"subjects" },
+      { icon:"📣", label:"Announcements", key:"announcements" },
+      { icon:"🎫", label:"Scratch Cards", key:"scratches" },
+    ],
+    teacher: [
+      { icon:"🏠", label:"Dashboard",   key:"dashboard" },
+      { icon:"📋", label:"Attendance",  key:"attendance" },
+      { icon:"📊", label:"Results",     key:"results" },
+      { icon:"📣", label:"Announcements", key:"announcements" },
+    ],
+    bursar:  [
+      { icon:"🏠", label:"Dashboard",   key:"dashboard" },
+      { icon:"💰", label:"Fees",        key:"fees" },
+      { icon:"🧾", label:"Payments",    key:"payments" },
+      { icon:"📈", label:"Reports",     key:"reports" },
+    ],
+    student: [
+      { icon:"🏠", label:"Dashboard",   key:"dashboard" },
+      { icon:"📊", label:"My Results",  key:"myresults" },
+      { icon:"📣", label:"Announcements", key:"announcements" },
+    ],
+  };
+  return (
+    <div className="sidebar">
+      <div className="sidebar-logo">
+        <span className="emoji">🏫</span> Nova
+      </div>
+      {navs[user.role].map(n => (
+        <div key={n.key} className={`nav-item${page===n.key?" active":""}`}
+          onClick={() => setPage(n.key)}>
+          <span className="nav-icon">{n.icon}</span>{n.label}
+        </div>
+      ))}
+      <div className="sidebar-user">
+        <div className="avatar" style={{ background: user.color + "33", color: user.color,
+          borderColor: user.color + "44" }}>
+          {user.emoji}
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ color:"white", fontSize:13, fontWeight:800,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.name}</div>
+          <div style={{ color:"var(--sky)", fontSize:11, fontWeight:700, textTransform:"capitalize" }}>{user.role}</div>
+        </div>
+        <button onClick={logout} style={{ background:"none", border:"none", cursor:"pointer",
+          color:"rgba(255,255,255,0.5)", fontSize:16 }} title="Logout">🚪</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN DASHBOARD ──────────────────────────────────────────────────────────
+function AdminDashboard() {
+  const payments = STUDENTS.reduce((a,s) => a + s.paid, 0);
+  return (
+    <div>
+      <div className="welcome-banner">
+        <div className="welcome-text">
+          <h2>Good morning, Principal! 👋</h2>
+          <p>Here's what's happening at Nova School today</p>
+        </div>
+        <div className="welcome-emoji">🎓</div>
+      </div>
+      <div className="card-grid grid-4" style={{ marginBottom:24 }}>
+        <StatCard icon="👩‍🎓" val={STUDENTS.length} label="Total Students" trend="+3 this week" bg="var(--sky)"/>
+        <StatCard icon="👩‍🏫" val={TEACHERS.length} label="Teachers" trend="+1 this term" bg="var(--grass)"/>
+        <StatCard icon="🏛️" val={CLASSES.length} label="Active Classes" bg="var(--purple)"/>
+        <StatCard icon="💰" val={fmtMoney(payments)} label="Fees Collected" trend="+12% this term" bg="var(--sun)"/>
+      </div>
+      <div className="card-grid grid-2">
+        <div className="card">
+          <SectionHeader title="Attendance this week" emoji="📅"/>
+          <SimpleBar
+            data={[{label:"Mon",val:87},{label:"Tue",val:91},{label:"Wed",val:88},{label:"Thu",val:94},{label:"Fri",val:79}]}
+            colors={["var(--sky)","var(--grass)","var(--purple)","var(--sun)","var(--coral)"]}
+          />
+        </div>
+        <div className="card">
+          <SectionHeader title="Recent Announcements" emoji="📣"/>
+          {ANNOUNCEMENTS.slice(0,2).map(a => (
+            <div className="announcement" key={a.id}>
+              <div className="ann-title">{a.title}</div>
+              <div className="ann-body">{a.body.slice(0,60)}…</div>
+              <div className="ann-meta">📅 {a.date} · by {a.by}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── STUDENTS PAGE ────────────────────────────────────────────────────────────
+function StudentsPage() {
+  const [search, setSearch] = useState("");
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({ name:"", class:"SS2A", email:"" });
+  const filtered = STUDENTS.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    s.class.toLowerCase().includes(search.toLowerCase())
+  );
+  return (
+    <div>
+      <SectionHeader title="Students" emoji="👩‍🎓">
+        <button className="btn btn-primary" onClick={() => setModal(true)}>＋ Add Student</button>
+      </SectionHeader>
+      <div className="card" style={{ marginBottom:20 }}>
+        <div className="card-grid grid-4" style={{ marginBottom:0 }}>
+          <StatCard icon="✅" val={STUDENTS.filter(s=>s.status==="paid").length} label="Paid" bg="var(--grass)"/>
+          <StatCard icon="◑" val={STUDENTS.filter(s=>s.status==="partial").length} label="Partial" bg="var(--sun)"/>
+          <StatCard icon="❌" val={STUDENTS.filter(s=>s.status==="unpaid").length} label="Unpaid" bg="var(--coral)"/>
+          <StatCard icon="📊" val={Math.round(STUDENTS.reduce((a,s)=>a+s.score,0)/STUDENTS.length)} label="Avg Score" bg="var(--sky)"/>
+        </div>
+      </div>
+      <div style={{ marginBottom:16 }}>
+        <div className="search-wrap">
+          <span className="search-icon">🔍</span>
+          <input placeholder="Search students by name or class…" value={search} onChange={e=>setSearch(e.target.value)}/>
+        </div>
+      </div>
+      <div className="card" style={{ padding:0 }}>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Student</th><th>Class</th><th>Score</th><th>Grade</th><th>Fee Status</th><th>Balance</th></tr>
+            </thead>
+            <tbody>
+              {filtered.map(s => {
+                const g = getGrade(s.score);
+                return (
+                  <tr key={s.id}>
+                    <td>
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <div className="avatar-sm" style={{ background:"var(--sky)22", color:"var(--navy)", border:"2px solid var(--sky)44" }}>
+                          {s.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight:800 }}>{s.name}</div>
+                          <div style={{ fontSize:12, color:"var(--muted)" }}>{s.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span className="chip chip-navy">{s.class}</span></td>
+                    <td><strong>{s.score}%</strong></td>
+                    <td><span className={`badge ${g.c}`}>{g.g}</span></td>
+                    <td>{statusBadge(s.status)}</td>
+                    <td style={{ color: s.balance > 0 ? "var(--coral)" : "var(--grass)", fontWeight:800 }}>
+                      {s.balance > 0 ? fmtMoney(s.balance) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {modal && (
+        <Modal title="Add New Student" emoji="👩‍🎓" onClose={() => setModal(false)}>
+          <div className="form-group"><label>Full name</label>
+            <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Adaeze Obi"/></div>
+          <div className="form-group"><label>Class</label>
+            <select value={form.class} onChange={e=>setForm({...form,class:e.target.value})}>
+              {CLASSES.map(c => <option key={c.id}>{c.name}</option>)}
+            </select></div>
+          <div className="form-group"><label>Email</label>
+            <input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="student@school.ng"/></div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+            <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={() => setModal(false)}>✓ Save Student</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── TEACHERS PAGE ────────────────────────────────────────────────────────────
+function TeachersPage() {
+  const [modal, setModal] = useState(false);
+  return (
+    <div>
+      <SectionHeader title="Teachers" emoji="👩‍🏫">
+        <button className="btn btn-primary" onClick={() => setModal(true)}>＋ Add Teacher</button>
+      </SectionHeader>
+      <div className="card-grid grid-3" style={{ marginBottom:20 }}>
+        {TEACHERS.map(t => (
+          <div className="card" key={t.id} style={{ textAlign:"center" }}>
+            <div className="avatar" style={{ margin:"0 auto 12px", width:52, height:52, fontSize:24,
+              background:"var(--purple)22", color:"var(--navy)", border:"3px solid var(--purple)44" }}>
+              {t.name.includes("Mrs") ? "👩‍🏫" : "👨‍🏫"}
+            </div>
+            <div style={{ fontWeight:800, fontSize:15, color:"var(--navy)" }}>{t.name}</div>
+            <div style={{ color:"var(--muted)", fontSize:13, margin:"4px 0" }}>{t.subject}</div>
+            <span className="chip chip-navy">{t.class}</span>
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{ padding:0 }}>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Subject</th><th>Class</th><th>Email</th></tr></thead>
+            <tbody>
+              {TEACHERS.map(t => (
+                <tr key={t.id}>
+                  <td><strong>{t.name}</strong></td>
+                  <td><span className="badge badge-blue">{t.subject}</span></td>
+                  <td><span className="chip chip-navy">{t.class}</span></td>
+                  <td style={{ color:"var(--muted)" }}>{t.email}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {modal && (
+        <Modal title="Add Teacher" emoji="👩‍🏫" onClose={() => setModal(false)}>
+          <div className="form-group"><label>Full name</label><input placeholder="e.g. Mrs. Adaobi"/></div>
+          <div className="form-group"><label>Subject</label>
+            <select>{SUBJECTS.map(s=><option key={s.id}>{s.name}</option>)}</select></div>
+          <div className="form-group"><label>Assigned Class</label>
+            <select>{CLASSES.map(c=><option key={c.id}>{c.name}</option>)}</select></div>
+          <div className="form-group"><label>Email</label><input placeholder="teacher@school.ng"/></div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+            <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={() => setModal(false)}>✓ Save</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── CLASSES ──────────────────────────────────────────────────────────────────
+function ClassesPage() {
+  return (
+    <div>
+      <SectionHeader title="Classes" emoji="🏛️">
+        <button className="btn btn-primary">＋ New Class</button>
+      </SectionHeader>
+      <div className="card-grid grid-2">
+        {CLASSES.map((c, i) => {
+          const colors = ["var(--sky)","var(--grass)","var(--purple)","var(--sun)"];
+          const pct = Math.round((c.students/40)*100);
+          return (
+            <div className="card" key={c.id}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+                <div style={{ width:48, height:48, borderRadius:14, background:colors[i]+"33",
+                  border:`2.5px solid ${colors[i]}66`, display:"flex", alignItems:"center",
+                  justifyContent:"center", fontSize:22 }}>🏛️</div>
+                <div>
+                  <div style={{ fontFamily:"var(--font-head)", fontSize:20, color:"var(--navy)" }}>{c.name}</div>
+                  <div style={{ color:"var(--muted)", fontSize:13, fontWeight:700 }}>{c.teacher}</div>
+                </div>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                <span className="chip">👩‍🎓 {c.students} students</span>
+                <span className="chip chip-navy">Fee: {fmtMoney(c.fee)}</span>
+              </div>
+              <div className="progress-wrap">
+                <div className="progress-fill" style={{ width:`${pct}%`, background:colors[i] }}/>
+              </div>
+              <div style={{ fontSize:12, color:"var(--muted)", marginTop:6, fontWeight:700 }}>
+                {pct}% capacity
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── SUBJECTS ─────────────────────────────────────────────────────────────────
+function SubjectsPage() {
+  return (
+    <div>
+      <SectionHeader title="Subjects" emoji="📚">
+        <button className="btn btn-primary">＋ Add Subject</button>
+      </SectionHeader>
+      <div className="card-grid grid-3">
+        {SUBJECTS.map((s,i) => {
+          const emojis = ["🔢","📖","⚗️","🌿","⚡"];
+          const colors = ["var(--sky)","var(--grass)","var(--coral)","var(--purple)","var(--sun)"];
+          return (
+            <div className="card" key={s.id} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:36, marginBottom:10 }}>{emojis[i]}</div>
+              <div style={{ fontFamily:"var(--font-head)", fontSize:18, color:"var(--navy)" }}>{s.name}</div>
+              <div style={{ color:"var(--muted)", fontSize:13, margin:"6px 0" }}>{s.teacher}</div>
+              <span className="badge badge-blue">{s.code}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── ANNOUNCEMENTS ────────────────────────────────────────────────────────────
+function AnnouncementsPage() {
+  const { user } = useAuth();
+  const [modal, setModal] = useState(false);
+  return (
+    <div>
+      <SectionHeader title="Announcements" emoji="📣">
+        {(user.role === "admin" || user.role === "bursar") &&
+          <button className="btn btn-primary" onClick={() => setModal(true)}>＋ Post Announcement</button>}
+      </SectionHeader>
+      {ANNOUNCEMENTS.map(a => (
+        <div className="announcement" key={a.id}>
+          <div className="ann-title">{a.title}</div>
+          <div className="ann-body">{a.body}</div>
+          <div className="ann-meta">📅 {a.date} · Posted by {a.by}</div>
+        </div>
+      ))}
+      {modal && (
+        <Modal title="Post Announcement" emoji="📣" onClose={() => setModal(false)}>
+          <div className="form-group"><label>Title</label><input placeholder="e.g. School closure notice"/></div>
+          <div className="form-group"><label>Message</label><textarea rows={4} placeholder="Write your announcement here…"/></div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+            <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
+            <button className="btn btn-sun" onClick={() => setModal(false)}>📣 Post</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── SCRATCH CARDS ────────────────────────────────────────────────────────────
+function ScratchCardsPage() {
+  const [revealed, setRevealed] = useState({});
+  return (
+    <div>
+      <SectionHeader title="Scratch Cards" emoji="🎫">
+        <button className="btn btn-sun">＋ Generate Bulk</button>
+      </SectionHeader>
+      <div style={{ marginBottom:16, padding:"14px 18px", background:"var(--sky)22",
+        border:"2px solid var(--sky)44", borderRadius:12, color:"var(--navy)", fontSize:14, fontWeight:700 }}>
+        💡 Scratch cards are used by students to access their results portal. Click any card to reveal!
+      </div>
+      <div className="card-grid grid-2">
+        {SCRATCH_CARDS.map(sc => (
+          <div className="scratch-card" key={sc.id}
+            onClick={() => !sc.used && setRevealed(r => ({ ...r, [sc.id]: true }))}>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.5)", fontWeight:800,
+              textTransform:"uppercase", letterSpacing:2, marginBottom:8 }}>Nova School · Result Card</div>
+            <div className="code">{sc.code}</div>
+            <div style={{ fontSize:11, color: sc.used?"var(--coral)":"var(--grass)",
+              fontWeight:800, marginTop:8 }}>
+              {sc.used ? "⛔ Used" : "✅ Available"}
+            </div>
+            {!revealed[sc.id] && !sc.used && (
+              <div className="scratch-overlay">🎴 Tap to reveal</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── TEACHER DASHBOARD ────────────────────────────────────────────────────────
+function TeacherDashboard() {
+  return (
+    <div>
+      <div className="welcome-banner">
+        <div className="welcome-text">
+          <h2>Welcome back, Mrs. Afolabi! 📐</h2>
+          <p>SS2A · Mathematics · 35 students</p>
+        </div>
+        <div className="welcome-emoji">📐</div>
+      </div>
+      <div className="card-grid grid-3" style={{ marginBottom:24 }}>
+        <StatCard icon="👩‍🎓" val="35" label="My Students" bg="var(--sky)"/>
+        <StatCard icon="✅" val="31" label="Present Today" trend="+2 vs yesterday" bg="var(--grass)"/>
+        <StatCard icon="📊" val="78%" label="Class Average" trend="+3% this term" bg="var(--purple)"/>
+      </div>
+      <div className="card">
+        <SectionHeader title="Today's Quick Attendance — SS2A" emoji="📋"/>
+        <div className="att-grid">
+          <div style={{ padding:"8px 14px", fontWeight:800, fontSize:12, color:"var(--muted)",
+            borderBottom:"2px solid var(--border)", textTransform:"uppercase", letterSpacing:1 }}>Student</div>
+          <div style={{ padding:"8px 14px", fontWeight:800, fontSize:12, color:"var(--muted)",
+            borderBottom:"2px solid var(--border)", textTransform:"uppercase", letterSpacing:1 }}>Status</div>
+          <div style={{ padding:"8px 14px", fontWeight:800, fontSize:12, color:"var(--muted)",
+            borderBottom:"2px solid var(--border)", textTransform:"uppercase", letterSpacing:1 }}>Action</div>
+          {ATTENDANCE_DATA.map((a,i) => (
+            <div className="att-row" key={i}>
+              <div style={{ fontWeight:700 }}>{a.name}</div>
+              <div>
+                {a.status==="present" && <span className="badge badge-green">✓ Present</span>}
+                {a.status==="absent"  && <span className="badge badge-red">✗ Absent</span>}
+                {a.status==="late"    && <span className="badge badge-yellow">⚡ Late</span>}
+              </div>
+              <div style={{ display:"flex", gap:6 }}>
+                <button className="btn btn-grass btn-sm">P</button>
+                <button className="btn btn-coral btn-sm">A</button>
+                <button className="btn btn-sky btn-sm">L</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}>
+          <button className="btn btn-primary">💾 Save Attendance</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TEACHER RESULTS ─────────────────────────────────────────────────────────
+function TeacherResultsPage() {
+  const [modal, setModal] = useState(false);
+  return (
+    <div>
+      <SectionHeader title="Upload Results" emoji="📊">
+        <button className="btn btn-primary" onClick={() => setModal(true)}>＋ Upload Scores</button>
+      </SectionHeader>
+      <div className="card" style={{ padding:0 }}>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Student</th><th>Class</th><th>Score (%)</th><th>Grade</th><th>Term</th></tr></thead>
+            <tbody>
+              {STUDENTS.map(s => {
+                const g = getGrade(s.score);
+                return (
+                  <tr key={s.id}>
+                    <td><strong>{s.name}</strong></td>
+                    <td><span className="chip chip-navy">{s.class}</span></td>
+                    <td>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ flex:1, maxWidth:80 }}>
+                          <div className="progress-wrap" style={{ height:8 }}>
+                            <div className="progress-fill" style={{ width:`${s.score}%`,
+                              background: s.score>=75?"var(--grass)":s.score>=50?"var(--sun)":"var(--coral)" }}/>
+                          </div>
+                        </div>
+                        <strong>{s.score}</strong>
+                      </div>
+                    </td>
+                    <td><span className={`badge ${g.c}`}>{g.g}</span></td>
+                    <td><span className="chip">1st Term</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {modal && (
+        <Modal title="Upload Scores" emoji="📊" onClose={() => setModal(false)}>
+          <div className="form-group"><label>Student</label>
+            <select>{STUDENTS.map(s=><option key={s.id}>{s.name}</option>)}</select></div>
+          <div className="form-group"><label>Subject</label>
+            <select>{SUBJECTS.map(s=><option key={s.id}>{s.name}</option>)}</select></div>
+          <div className="form-group"><label>Score (%)</label>
+            <input type="number" min="0" max="100" placeholder="0-100"/></div>
+          <div className="form-group"><label>Term</label>
+            <select><option>1st Term</option><option>2nd Term</option><option>3rd Term</option></select></div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+            <button className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
+            <button className="btn btn-grass" onClick={() => setModal(false)}>📤 Upload</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── BURSAR DASHBOARD ─────────────────────────────────────────────────────────
+function BursarDashboard() {
+  const total    = STUDENTS.reduce((a,s)=>a+(s.paid+s.balance),0);
+  const collected = STUDENTS.reduce((a,s)=>a+s.paid,0);
+  const outstanding = STUDENTS.reduce((a,s)=>a+s.balance,0);
+  const pct = Math.round((collected/total)*100);
+  return (
+    <div>
+      <div className="welcome-banner">
+        <div className="welcome-text">
+          <h2>Finance Overview 💰</h2>
+          <p>1st Term 2024/2025 · Collections Tracker</p>
+        </div>
+        <div className="welcome-emoji">💰</div>
+      </div>
+      <div className="card-grid grid-3" style={{ marginBottom:24 }}>
+        <StatCard icon="💰" val={fmtMoney(collected)} label="Total Collected" trend="+₦85k this week" bg="var(--grass)"/>
+        <StatCard icon="⏳" val={fmtMoney(outstanding)} label="Outstanding" bg="var(--coral)"/>
+        <StatCard icon="📈" val={`${pct}%`} label="Collection Rate" trend="+5% vs last term" bg="var(--sky)"/>
+      </div>
+      <div className="card" style={{ marginBottom:20 }}>
+        <SectionHeader title="Collection progress" emoji="📈"/>
+        <div style={{ marginBottom:8 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, fontWeight:800, color:"var(--muted)", marginBottom:6 }}>
+            <span>{fmtMoney(collected)} collected</span><span>{pct}%</span>
+          </div>
+          <div className="progress-wrap" style={{ height:16 }}>
+            <div className="progress-fill" style={{ width:`${pct}%`,
+              background:"linear-gradient(90deg, var(--grass), var(--sky))" }}/>
+          </div>
+          <div style={{ fontSize:12, color:"var(--muted)", marginTop:6, fontWeight:700 }}>
+            Target: {fmtMoney(total)}
+          </div>
+        </div>
+      </div>
+      <div className="card" style={{ padding:0 }}>
+        <div style={{ padding:"16px 20px" }}>
+          <SectionHeader title="Payment status by class" emoji="🏛️"/>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Class</th><th>Paid</th><th>Partial</th><th>Unpaid</th><th>Fee</th></tr></thead>
+            <tbody>
+              {CLASSES.map(c => {
+                const cls = STUDENTS.filter(s=>s.class===c.name);
+                return (
+                  <tr key={c.id}>
+                    <td><strong>{c.name}</strong></td>
+                    <td><span className="badge badge-green">{cls.filter(s=>s.status==="paid").length}</span></td>
+                    <td><span className="badge badge-yellow">{cls.filter(s=>s.status==="partial").length}</span></td>
+                    <td><span className="badge badge-red">{cls.filter(s=>s.status==="unpaid").length}</span></td>
+                    <td style={{ fontWeight:800 }}>{fmtMoney(c.fee)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── BURSAR FEES ──────────────────────────────────────────────────────────────
+function FeesPage() {
+  const [filter, setFilter] = useState("all");
+  const [modal, setModal] = useState(null);
+  const filtered = STUDENTS.filter(s => filter === "all" || s.status === filter);
+  return (
+    <div>
+      <SectionHeader title="Fee Management" emoji="💰">
+        <select value={filter} onChange={e=>setFilter(e.target.value)}
+          style={{ width:"auto", padding:"8px 14px", fontWeight:800, fontSize:13 }}>
+          <option value="all">All Students</option>
+          <option value="paid">Paid</option>
+          <option value="partial">Partial</option>
+          <option value="unpaid">Unpaid</option>
+        </select>
+      </SectionHeader>
+      <div className="card" style={{ padding:0 }}>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Student</th><th>Class</th><th>Amount Paid</th><th>Balance</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+              {filtered.map(s => (
+                <tr key={s.id}>
+                  <td><strong>{s.name}</strong></td>
+                  <td><span className="chip chip-navy">{s.class}</span></td>
+                  <td style={{ color:"var(--grass)", fontWeight:800 }}>{fmtMoney(s.paid)}</td>
+                  <td style={{ color: s.balance>0?"var(--coral)":"var(--muted)", fontWeight:800 }}>
+                    {s.balance>0 ? fmtMoney(s.balance) : "—"}
+                  </td>
+                  <td>{statusBadge(s.status)}</td>
+                  <td>
+                    <button className="btn btn-sky btn-sm" onClick={() => setModal(s)}>
+                      🧾 Record Payment
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {modal && (
+        <Modal title="Record Payment" emoji="💰" onClose={() => setModal(null)}>
+          <div style={{ marginBottom:16, padding:"12px 16px", background:"var(--grass)11",
+            border:"2px solid var(--grass)44", borderRadius:12 }}>
+            <strong>{modal.name}</strong> · {modal.class}<br/>
+            <span style={{ fontSize:13, color:"var(--muted)" }}>
+              Balance: <strong style={{ color:"var(--coral)" }}>{fmtMoney(modal.balance)}</strong>
+            </span>
+          </div>
+          <div className="form-group"><label>Amount Paid (₦)</label>
+            <input type="number" placeholder="e.g. 25000"/></div>
+          <div className="form-group"><label>Payment Method</label>
+            <select><option>Bank Transfer</option><option>Cash</option><option>POS</option></select></div>
+          <div className="form-group"><label>Reference / Teller No.</label>
+            <input placeholder="e.g. TXN-2024-001"/></div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+            <button className="btn btn-ghost" onClick={() => setModal(null)}>Cancel</button>
+            <button className="btn btn-grass" onClick={() => setModal(null)}>✅ Record & Print Receipt</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── BURSAR PAYMENTS ──────────────────────────────────────────────────────────
+function PaymentsPage() {
+  const [receipt, setReceipt] = useState(null);
+  const payments = STUDENTS.filter(s=>s.paid>0).map((s,i) => ({
+    ...s, ref: `TXN-2024-00${i+1}`, date: `Nov ${i+1}, 2024`
+  }));
+  return (
+    <div>
+      <SectionHeader title="Payment Records" emoji="🧾">
+        <button className="btn btn-ghost">⬇ Export CSV</button>
+      </SectionHeader>
+      <div className="card" style={{ padding:0 }}>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Student</th><th>Amount</th><th>Reference</th><th>Date</th><th>Status</th><th>Receipt</th></tr></thead>
+            <tbody>
+              {payments.map(p => (
+                <tr key={p.id}>
+                  <td><strong>{p.name}</strong></td>
+                  <td style={{ color:"var(--grass)", fontWeight:800 }}>{fmtMoney(p.paid)}</td>
+                  <td><code style={{ fontSize:12, background:"var(--border)", padding:"2px 8px",
+                    borderRadius:6 }}>{p.ref}</code></td>
+                  <td style={{ color:"var(--muted)" }}>{p.date}</td>
+                  <td>{statusBadge(p.status)}</td>
+                  <td>
+                    <button className="btn btn-sky btn-sm" onClick={() => setReceipt(p)}>
+                      🧾 View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {receipt && (
+        <Modal title="Payment Receipt" emoji="🧾" onClose={() => setReceipt(null)}>
+          <div className="receipt">
+            <div className="receipt-title">🏫 Nova School<br/>
+              <span style={{ fontSize:12, fontFamily:"inherit" }}>Official Payment Receipt</span>
+            </div>
+            {[
+              ["Receipt No.", receipt.ref],
+              ["Student", receipt.name],
+              ["Class", receipt.class],
+              ["Amount Paid", fmtMoney(receipt.paid)],
+              ["Outstanding", fmtMoney(receipt.balance)],
+              ["Date", receipt.date],
+              ["Status", receipt.status.toUpperCase()],
+            ].map(([k,v]) => (
+              <div className="receipt-row" key={k}>
+                <span style={{ color:"#666" }}>{k}</span>
+                <span className={k==="Amount Paid"?"receipt-total":""}>{v}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop:16, display:"flex", justifyContent:"center" }}>
+            <button className="btn btn-primary">🖨️ Print Receipt</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── STUDENT DASHBOARD ────────────────────────────────────────────────────────
+function StudentDashboard() {
+  const student = STUDENTS[0];
+  const g = getGrade(student.score);
+  return (
+    <div>
+      <div className="welcome-banner">
+        <div className="welcome-text">
+          <h2>Hey, Amara! 🌟</h2>
+          <p>SS2A · 1st Term 2024/2025 · Keep up the great work!</p>
+        </div>
+        <div className="welcome-emoji">🌟</div>
+      </div>
+      <div className="card-grid grid-3" style={{ marginBottom:24 }}>
+        <StatCard icon="📊" val={`${student.score}%`} label="Overall Score" trend="+4% this term" bg="var(--sky)"/>
+        <StatCard icon="🏅" val={g.g} label="Current Grade" bg="var(--grass)"/>
+        <StatCard icon="💰" val={student.balance===0?"All clear":"Balance due"} label="Fee Status" bg={student.balance===0?"var(--grass)":"var(--coral)"}/>
+      </div>
+      <div className="card-grid grid-2">
+        <div className="card">
+          <SectionHeader title="My Subjects" emoji="📚"/>
+          {SUBJECTS.map((s,i) => {
+            const score = [88,72,75,91,68][i];
+            const g2 = getGrade(score);
+            return (
+              <div key={s.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                padding:"10px 0", borderBottom:"2px solid var(--border)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:20 }}>{"🔢📖⚗️🌿⚡"[i*2]}{"🔢📖⚗️🌿⚡"[i*2+1]||""}</span>
+                  <div>
+                    <div style={{ fontWeight:800, fontSize:14, color:"var(--navy)" }}>{s.name}</div>
+                    <div style={{ fontSize:12, color:"var(--muted)" }}>{s.teacher}</div>
+                  </div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <strong style={{ color:"var(--navy)" }}>{score}%</strong>
+                  <span className={`badge ${g2.c}`}>{g2.g}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="card">
+          <SectionHeader title="Announcements" emoji="📣"/>
+          {ANNOUNCEMENTS.map(a => (
+            <div className="announcement" key={a.id}>
+              <div className="ann-title">{a.title}</div>
+              <div className="ann-meta">📅 {a.date}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── STUDENT RESULTS ──────────────────────────────────────────────────────────
+function StudentResultsPage() {
+  const scores = [88,72,75,91,68];
+  const avg = Math.round(scores.reduce((a,b)=>a+b,0)/scores.length);
+  return (
+    <div>
+      <SectionHeader title="My Results" emoji="📊"/>
+      <div className="card-grid grid-3" style={{ marginBottom:20 }}>
+        <StatCard icon="📊" val={`${avg}%`} label="Term Average" bg="var(--sky)"/>
+        <StatCard icon="🏅" val={getGrade(avg).g} label="Grade" bg="var(--grass)"/>
+        <StatCard icon="🏆" val="5th" label="Class Position" trend="↑ from 7th" bg="var(--sun)"/>
+      </div>
+      <div className="card" style={{ padding:0 }}>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Subject</th><th>Teacher</th><th>Score</th><th>Grade</th><th>Performance</th></tr></thead>
+            <tbody>
+              {SUBJECTS.map((s,i) => {
+                const score = scores[i];
+                const g = getGrade(score);
+                return (
+                  <tr key={s.id}>
+                    <td><strong>{s.name}</strong></td>
+                    <td style={{ color:"var(--muted)" }}>{s.teacher}</td>
+                    <td><strong>{score}%</strong></td>
+                    <td><span className={`badge ${g.c}`}>{g.g}</span></td>
+                    <td>
+                      <div className="progress-wrap" style={{ width:120 }}>
+                        <div className="progress-fill" style={{ width:`${score}%`,
+                          background: score>=75?"var(--grass)":score>=50?"var(--sun)":"var(--coral)" }}/>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── REPORTS ──────────────────────────────────────────────────────────────────
+function ReportsPage() {
+  const totalF = STUDENTS.reduce((a,s)=>a+(s.paid+s.balance),0);
+  const collected = STUDENTS.reduce((a,s)=>a+s.paid,0);
+  return (
+    <div>
+      <SectionHeader title="Financial Reports" emoji="📈">
+        <button className="btn btn-ghost">⬇ Export PDF</button>
+        <button className="btn btn-primary">📊 Full Report</button>
+      </SectionHeader>
+      <div className="card-grid grid-2" style={{ marginBottom:20 }}>
+        <div className="card">
+          <SectionHeader title="Collection by class" emoji="🏛️"/>
+          <SimpleBar
+            data={CLASSES.map(c => ({
+              label: c.name,
+              val: STUDENTS.filter(s=>s.class===c.name).reduce((a,s)=>a+s.paid,0)
+            }))}
+            colors={["var(--sky)","var(--grass)","var(--purple)","var(--sun)"]}
+          />
+        </div>
+        <div className="card">
+          <SectionHeader title="Payment status split" emoji="🍩"/>
+          {[
+            { label:"Paid in full", val:STUDENTS.filter(s=>s.status==="paid").length, color:"var(--grass)" },
+            { label:"Partially paid", val:STUDENTS.filter(s=>s.status==="partial").length, color:"var(--sun)" },
+            { label:"Unpaid", val:STUDENTS.filter(s=>s.status==="unpaid").length, color:"var(--coral)" },
+          ].map(r => (
+            <div key={r.label} style={{ marginBottom:12 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:13,
+                fontWeight:800, color:"var(--muted)", marginBottom:5 }}>
+                <span>{r.label}</span><span>{r.val} students</span>
+              </div>
+              <div className="progress-wrap">
+                <div className="progress-fill" style={{
+                  width:`${(r.val/STUDENTS.length)*100}%`, background:r.color }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card">
+        <SectionHeader title="Summary" emoji="📋"/>
+        {[
+          ["Total expected fees", fmtMoney(totalF)],
+          ["Total collected", fmtMoney(collected)],
+          ["Outstanding amount", fmtMoney(totalF-collected)],
+          ["Collection rate", `${Math.round((collected/totalF)*100)}%`],
+          ["Students fully paid", `${STUDENTS.filter(s=>s.status==="paid").length} of ${STUDENTS.length}`],
+        ].map(([k,v]) => (
+          <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"12px 0",
+            borderBottom:"2px solid var(--border)", fontSize:14 }}>
+            <span style={{ color:"var(--muted)", fontWeight:700 }}>{k}</span>
+            <strong style={{ color:"var(--navy)" }}>{v}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── APP SHELL ────────────────────────────────────────────────────────────────
+function AppShell() {
+  const { user } = useAuth();
+  const defaultPage = "dashboard";
+  const [page, setPage] = useState(defaultPage);
+
+  const pages = {
+    admin: {
+      dashboard:     <AdminDashboard/>,
+      students:      <StudentsPage/>,
+      teachers:      <TeachersPage/>,
+      classes:       <ClassesPage/>,
+      subjects:      <SubjectsPage/>,
+      announcements: <AnnouncementsPage/>,
+      scratches:     <ScratchCardsPage/>,
+    },
+    teacher: {
+      dashboard:     <TeacherDashboard/>,
+      attendance:    <TeacherDashboard/>,
+      results:       <TeacherResultsPage/>,
+      announcements: <AnnouncementsPage/>,
+    },
+    bursar: {
+      dashboard: <BursarDashboard/>,
+      fees:      <FeesPage/>,
+      payments:  <PaymentsPage/>,
+      reports:   <ReportsPage/>,
+    },
+    student: {
+      dashboard:     <StudentDashboard/>,
+      myresults:     <StudentResultsPage/>,
+      announcements: <AnnouncementsPage/>,
+    },
+  };
+
+  const pageTitles = {
+    dashboard:"Dashboard", students:"Students", teachers:"Teachers", classes:"Classes",
+    subjects:"Subjects", announcements:"Announcements", scratches:"Scratch Cards",
+    attendance:"Attendance", results:"Results", fees:"Fees", payments:"Payments",
+    reports:"Reports", myresults:"My Results",
+  };
+
+  const content = pages[user.role][page] || pages[user.role]["dashboard"];
+
+  return (
+    <div className="app">
+      <Sidebar page={page} setPage={setPage}/>
+      <div className="main">
+        <div className="topbar">
+          <div>
+            <div className="page-title">{pageTitles[page] || "Dashboard"}</div>
+            <div className="page-subtitle">Nova School Portal · 1st Term 2024/2025</div>
+          </div>
+          <div className="topbar-actions">
+            <span style={{ fontSize:20 }}>🔔</span>
+            <div className="avatar" style={{ background:user.color+"33", color:user.color,
+              border:`2px solid ${user.color}44`, width:36, height:36, fontSize:16 }}>
+              {user.emoji}
+            </div>
+          </div>
+        </div>
+        {content}
+      </div>
+    </div>
+  );
+}
+
+// ─── ROOT ─────────────────────────────────────────────────────────────────────
+export default function App() {
+  const [user, setUser] = useState(null);
+  const logout = () => setUser(null);
+
+  return (
+    <>
+      <style>{style}</style>
+      <AUTH_CONTEXT.Provider value={{ user, logout }}>
+        {!user
+          ? <LoginPage onLogin={setUser}/>
+          : <AppShell/>
+        }
+      </AUTH_CONTEXT.Provider>
+    </>
+  );
+}
